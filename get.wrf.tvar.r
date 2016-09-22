@@ -1,9 +1,10 @@
-get.wrf.tvar <- function(path, pattern, subset, varname, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), offset = NULL ){
+get.wrf.tvar <- function(path, pattern, subset, varname, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), offset = NULL, return_tstamp = FALSE ){
     # path = directory of the wrf files
     # pattern = the files of interest, to reduce the amount of memory needed
     # subset = inclusive time range to plot the data, e.g. c("1995-01-01 00:00:00", "1995-01-31 23:00:00"), or POSIXct objects
     # prlevs (needed only when dim(var)=4) = the pressure levels to interpolate the data to
     # offset = 273.15, when reading temperatures
+    # if return_tstamp = TRUE, return a vector of the time stamps of the slices of var
 
     # Obtain time-varying WRF variables
 
@@ -13,19 +14,18 @@ get.wrf.tvar <- function(path, pattern, subset, varname, calc = c("ASIS","SUM","
 
     filelist = list.files(path = path, pattern = pattern, full.names = TRUE)
 
-    if ( inherits(subset[1],"POSIXct") | inherits(subset[1],"POSIXlt") ){
+    if ( inherits(subset[1],"POSIXlt") ){
         # do nothing
         Timerange = subset
+    } else if (inherits(subset[1],"POSIXct")){
+        Timerange = as.POSIXlt(subset, tz = "GMT")
     } else {
         # treat as string
-        Timerange = strptime(subset, "%Y-%m-%d %H:%M:S")
+        Timerange = strptime(subset, "%Y-%m-%d %H:%M:S", tz = "GMT")
     }
 
     for (i in c(1:length(filelist))){
         ncid = open.nc(filelist[i])
-
-        # get the Time stamps
-        Times = strptime(var.get.nc(ncid, "Times"), "%Y-%m-%d_%H:%M:S")
 
         # get the variable
         if (varname == "hgt"){
@@ -58,6 +58,9 @@ get.wrf.tvar <- function(path, pattern, subset, varname, calc = c("ASIS","SUM","
             temp = temp - offset
         }
 
+        # get the Time stamps
+        Times = strptime(var.get.nc(ncid, "Times"), "%Y-%m-%d_%H:%M:S")
+
         # subset to the needed time stamps
         if (ndim == 3){
             temp = temp[,,which(Times>=Timerange[1] & Times<=Timerange[2])]
@@ -72,29 +75,63 @@ get.wrf.tvar <- function(path, pattern, subset, varname, calc = c("ASIS","SUM","
             var = abind(var, temp, along = ndim)
         }
 
+        if (return_tstamp){
+            time = Times[ which(Times>=Timerange[1] & Times<=Timerange[2]) ]
+        } else {
+            time =c(time, Times[ which(Times>=Timerange[1] & Times<=Timerange[2]) ])
+        }
+        
         close.nc(ncid)
     }
 
     # calculate statistics
     if (calc == "ASIS"){
-        return( var )
+        if (return_tstamp){
+            return( list(var = var, timestamp = time) )
+        } else {
+            return( var )
+        }
     } else if (calc == "SUM"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE) )
+            }
         } else if (ndim == 4) {
-            return( apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE) )
+            }
         }
     } else if (calc == "MEAN"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE) )
+            }
         } else if (ndim == 4) {
-            return( apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE) )
-        }            
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE) )
+            }
+        }
     } else if (calc == "SD"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE) )
+            }
         } else if (ndim == 4){
-            return( apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list( var = apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE), timestamp = time ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE) )
+            }
         }
     } else {
         stop("Un-recognized statistics")
