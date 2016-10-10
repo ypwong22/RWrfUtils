@@ -45,15 +45,16 @@ compare.narr.wrf <- function(path, pattern, subset, varname, calc = c("ASIS","ME
     # convert the WRF variable to daily
     wrfvar = condense(vvv$var, vvv$timestamp, calc = calcC, toscale = "daily")
 
-    # read the NARR variable (daily)
+    # read the NARR variable (3-hourly)
     narrvarname = NARVAR[ which(WRFVAR == varname) ]
     if (narrvarname == "air"){
         offset = 273.15
     } else {
         offset = 0
     }
-
-    narrvar = get.narr.tvar(narrvarname, subset, narrpath, NARFILE[ which(WRFVAR == varname) ], prlevs = prlevs)
+    narrvar = get.narr.tvar(narrvarname, subset, narrpath, NARFILE[ which(WRFVAR == varname) ], prlevs = prlevs, calc = "ASIS")
+    # convert NARR variable to daily
+    wrfvar = condense(vvv$var, vvv$timestamp, calc = calcC, toscale = "daily")
 
     # check that number of dimensions match
     wrfndim = length(dim(wrfvar))
@@ -64,8 +65,8 @@ compare.narr.wrf <- function(path, pattern, subset, varname, calc = c("ASIS","ME
 
     # interplate WRF variable to 0.25x0.25
     # - subset latCONUS, lonCONUS to a more reasonable range covered by WRF
-    wrflat = get.wrf.tcon(path, pattern, "XLAT")
-    wrflon = get.wrf.tcon(path, pattern, "XLONG")
+    wrflat = get.wrf.tcon("XLAT", path, pattern)
+    wrflon = get.wrf.tcon("XLONG", path, pattern)
 
     lato = latCONUS[ latCONUS > min(wrflat, na.rm=TRUE) & latCONUS < max(wrflat, na.rm=TRUE) ]
     lono = lonCONUS[ lonCONUS > min(wrflon, na.rm=TRUE) & lonCONUS < max(wrflon, na.rm=TRUE) ]

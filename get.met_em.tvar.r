@@ -1,16 +1,6 @@
-get.wrf.tvar <- function(varname, subset, path, pattern, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), offset = NULL, return_tstamp = FALSE ){
-    # path = directory of the wrf files
-    # pattern = the files of interest, to reduce the amount of memory needed
-    # subset = inclusive time range to plot the data, e.g. c("1995-01-01 00:00:00", "1995-01-31 23:00:00"), or POSIXct objects
-    # prlevs (needed only when dim(var)=4) = the pressure levels to interpolate the data to
-    # offset = 273.15, when reading temperatures
-    # if return_tstamp = TRUE, return a vector of the time stamps of the slices of var
-
-    # Obtain time-varying WRF variables
-
+get.met_em.tvar <- function(varname, subset, path, pattern, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), offset = NULL, return_tstamp = FALSE ){
     require("RNetCDF")
     require("abind")
-    source("intrpfn.r")
 
     filelist = list.files(path = path, pattern = pattern, full.names = TRUE)
 
@@ -32,7 +22,7 @@ get.wrf.tvar <- function(varname, subset, path, pattern, calc = c("ASIS","SUM","
 
         # get the Time stamps
         Times = strptime(var.get.nc(ncid, "Times"), "%Y-%m-%d_%H:%M:%S", tz = "GMT")
-
+        
         timeinrange[[i]] = Times >= Timerange[1] & Times<=Timerange[2]
 
         if (sum(timeinrange[[i]]) > 0){
@@ -65,43 +55,75 @@ get.wrf.tvar <- function(varname, subset, path, pattern, calc = c("ASIS","SUM","
 
         keeptime = which(timeinrange[[i]])
 
-        # get the variable
-        if (varname == "hgt"){
-            pr = var.get.nc(ncid, "P", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE)
-            temp = interp_vert( get_hgt(ncid, start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 1 )
-
+        # get the variable (with subset to the needed time stamps)
+        if (varname == "UU") {
+            temp = var.get.nc(ncid, "UU", start=c(NA,NA,NA,min(keeptime)), count=c(NA,NA,NA,length(keeptime)), collapse = FALSE)
+            # remove the south_north_stag
+            temp = 0.5 * (temp[,1:(dim(temp)[2]-1),,] + temp[,2:dim(temp)[2],,])
             ndim = 4
-        } else if (varname == "u") {
-            pr = var.get.nc(ncid, "P", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE)
-            temp = interp_vert( get_u(ncid, start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 0 )
-
+        } else if (varname == "VV"){
+            temp = var.get.nc(ncid, "VV", start=c(NA,NA,NA,min(keeptime)), count=c(NA,NA,NA,length(keeptime)), collapse = FALSE)
+            # remove the west_east_stag
+            temp = 0.5 * (temp[1:(dim(temp)[1]-1),,,] + temp[2:dim(temp)[1],,,])
             ndim = 4
-        } else if (varname == "v"){
-            pr = var.get.nc(ncid, "P", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE)
-            temp = interp_vert( get_v(ncid, start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 0)
-
-            ndim = 4
-        } else {
-            # assume is on mass grid, only need to interpolate vertically
-            temp = var.get.nc(ncid, varname, start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE)
-            ndim = length(dim(temp))
-            if ( ndim == 4 ){
-                pr = var.get.nc(ncid, "P", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(NA,NA,NA,keeptime[1]), count=c(NA,NA,NA,length(keeptime)), collapse=FALSE)
-                temp = interp_vert(temp, pr, prlevs, case = 0)
+        } else if (varname == "U10"){
+            var = var.get.nc(ncid, "UU", start=c(NA,NA,1,min(keeptime)), count=c(NA,NA,1,length(keeptime)), collapse = TRUE)
+            # if time dimension was collapsed, add back
+            if (length(dim(var)) == 2){
+                var = as.array(var, dim=c(dim(var)[1], dim(var)[2], 1))
             }
+            # remove the south_north_stag
+            temp = 0.5 * (temp[,1:(dim(temp)[2]-1),] + temp[,2:dim(temp)[2],])
+            # if four dimension remain, rearrange the time dimension to last
+            if (length(dim(var)) == 4){
+                var = aperm(var, c(1,2,4,3))
+            }
+            ndim = 3
+        } else if (varname == "V10"){
+            var = var.get.nc(ncid, "VV", start=c(NA,NA,1,min(keeptime)), count=c(NA,NA,1,length(keeptime)), collapse = TRUE)
+            # if time dimension was collapsed, add back
+            if (length(dim(var)) == 2){
+                var = as.array(var, dim=c(dim(var)[1], dim(var)[2], 1))
+            }
+            # remove the west_east_stag
+            temp = 0.5 * (temp[1:(dim(temp)[1]-1),,] + temp[2:dim(temp)[2],,])
+            # if four dimension remain, rearrange the time dimension to last
+            if (length(dim(var)) == 4){
+                var = aperm(var, c(1,2,4,3))
+            }
+            ndim = 3
+        } else if (varname == "T2"){
+            var = var.get.nc(ncid, "TT", start=c(NA,NA,1,min(keeptime)), count=c(NA,NA,1,length(keeptime)), collapse = TRUE)
+            # if time dimension was collapsed, add back
+            if (length(dim(var)) == 2){
+                var = as.array(var, dim=c(dim(var)[1], dim(var)[2], 1))
+            }
+            # if four dimension remain, rearrange the time dimension to last
+            if (length(dim(var)) == 4){
+                var = aperm(var, c(1,2,4,3))
+            }
+            ndim = 3
+        } else {
+            # no stagger and not the 1st layer
+            var = var.get.nc(ncid, varname, start=c(NA,NA,NA,min(keeptime)), count=c(NA,NA,NA,length(keeptime)), collapse = FALSE)
+            ndim = length(dim(var))
+        }
+
+        if (ndim == 4){
+            # pressure levels - subset to one column
+            pr = var.get.nc(ncid, "PRES", start = c(NA,NA,NA,1), count = c(NA,NA,NA,1))
+            pr = lapply(pr, MARGIN=3, FUN=mean, na.rm=TRUE)
+            keep = c()
+            for (i in 1:length(prlevs)){
+                keep[i] = which( pr == prlevs[i] )
+            }
+            var = var[,,keep,]
         }
 
         # apply the offset
         if ( !is.null(offset) ){
             temp = temp - offset
         }
-
-        ## subset to the needed time stamps
-        #if (ndim == 3){
-        #    temp = temp[,, timeinrange[[i]], drop = FALSE]
-        #} else if (ndim == 4){
-        #    temp = temp[,,, timeinrange[[i]], drop = FALSE]
-        #}
 
         # concatenate
         if (i == 1){
@@ -168,4 +190,5 @@ get.wrf.tvar <- function(varname, subset, path, pattern, calc = c("ASIS","SUM","
     } else {
         stop("Un-recognized statistics")
     }
+
 }

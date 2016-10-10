@@ -28,8 +28,8 @@ compare.cpc.wrf <- function(path, pattern, subset, calc = c("ASIS","MEAN","RMSE"
 
     # interpolate WRF precipitation to 0.25x0.25
     # - subset latCONUS, lonCONUS to a more reasonable range covered by WRF
-    wrflat = get.wrf.tcon(path, pattern, "XLAT")
-    wrflon = get.wrf.tcon(path, pattern, "XLONG")
+    wrflat = get.wrf.tcon("XLAT", path, pattern)
+    wrflon = get.wrf.tcon("XLONG", path, pattern)
 
     lato = latCONUS[ latCONUS > min(wrflat, na.rm=TRUE) & latCONUS < max(wrflat, na.rm=TRUE) ]
     lono = lonCONUS[ lonCONUS > min(wrflon, na.rm=TRUE) & lonCONUS < max(wrflon, na.rm=TRUE) ]
@@ -44,8 +44,8 @@ compare.cpc.wrf <- function(path, pattern, subset, calc = c("ASIS","MEAN","RMSE"
     }
 
     # read the CPC precipitation
-    cpclat = get.cpc.tcon(cpcpath, sub("yyyy", "[0-9]{4}", cpcfile)) # "precip.V1.0.[0-9]{4}.nc"
-    cpclon = -360 + get.cpc.tcon(cpcpath, sub("yyyy", "[0-9]{4}", cpcfile))
+    cpclat = get.cpc.tcon("lat", cpcpath, sub("yyyy", "[0-9]{4}", cpcfile)) # "precip.V1.0.[0-9]{4}.nc"
+    cpclon = -360 + get.cpc.tcon("lon", cpcpath, sub("yyyy", "[0-9]{4}", cpcfile))
 
     rrr = get.cpc.rain(cpcpath, cpcfile = cpcfile, subset, return_tstamp = TRUE)
     cpcrain = rrr$var

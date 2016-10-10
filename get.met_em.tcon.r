@@ -1,8 +1,7 @@
-get.cpc.tcon <- function(path, pattern, varname){
-    # path = directory of the cpc files
-    # pattern = the files of interest, to reduce the amount of memory needed
+get.met_em.tcon <- function(varname, path, pattern){
 
-    # Obtain time-constant WRF variables
+    # "CLAT", "CLON" (west_east, south_north, Time)
+    # "SOILHGT" (west_east, south_north, Time) terrain height
 
     require("RNetCDF")
 
@@ -24,4 +23,5 @@ get.cpc.tcon <- function(path, pattern, varname){
     }
 
     return(var)
+
 }

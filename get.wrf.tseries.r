@@ -1,4 +1,4 @@
-get.wrf.tseries <- function(path, pattern, subset, varname, lat, lon, prlevs = c(500, 700, 850), offset = NULL ){
+get.wrf.tseries <- function(varname, subset, path, pattern, lat, lon, prlevs = c(500, 700, 850), offset = NULL ){
     # path = directory of the wrf files
     # pattern = the files of interest, to reduce the amount of memory needed
     # subset = inclusive time range to plot the data, e.g. c("1995-01-01 00:00:00", "1995-01-31 23:00:00"), or POSIXct objects
@@ -24,8 +24,8 @@ get.wrf.tseries <- function(path, pattern, subset, varname, lat, lon, prlevs = c
     }
 
     # get latitude & longitude
-    lat2 = get.wrf.tcon(path = NULL, filename = filelist[1], varname = "XLAT")
-    lon2 = get.wrf.tcon(path = NULL, filename = filelist[1], varname = "XLONG")
+    lat2 = get.wrf.tcon("XLAT", path, pattern)
+    lon2 = get.wrf.tcon("XLONG", path, pattern)
     ind = nearest.index(lat, lon, lat2, lon2)
 
     print(paste("Found the nearest (lat,lon) = (",lat2[ind[1],ind[2]],",",lon2[ind[1],ind[2]],") to given (",lat,",",lon,")",sep=""))
@@ -38,46 +38,43 @@ get.wrf.tseries <- function(path, pattern, subset, varname, lat, lon, prlevs = c
 
         # get the variable
         if (varname == "hgt"){
-            pr = var.get.nc(ncid, "P") + var.get.nc(ncid, "PB")
-            temp = interp_vert( get_hgt(ncid), pr, prlevs, case = 1 )[ind[1], ind[2], ,]
-
+            pr = var.get.nc(ncid, "P", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE)
+            temp = interp_vert( get_hgt(ncid, start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 1 )
             ndim = 4
         } else if (varname == "u") {
-            pr = var.get.nc(ncid, "P") + var.get.nc(ncid, "PB")
-            temp = interp_vert( get_u(ncid), pr, prlevs, case = 0 )[ind[1], ind[2], ,]
-
+            pr = var.get.nc(ncid, "P", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE)
+            temp = interp_vert( get_u(ncid, start=c(ind[1],ind[2],NA,keeptime[1]), count=c(2,1,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 0 ) # note: account for the stagger
             ndim = 4
         } else if (varname == "v"){
-            pr = var.get.nc(ncid, "P") + var.get.nc(ncid, "PB")
-            temp = interp_vert( get_v(ncid), pr, prlevs, case = 0 )[ind[1], ind[2], ,]
-
+            pr = var.get.nc(ncid, "P", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE)
+            temp = interp_vert( get_v(ncid, start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,2,NA,length(keeptime)), collapse=FALSE), pr, prlevs, case = 0 ) # note: account for the stagger
             ndim = 4
         } else {
             # assume is on mass grid, only need to interpolate vertically
-            temp = var.get.nc(ncid, varname)
+            temp = var.get.nc(ncid, varname, start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE)
 
             ndim = length(dim(temp))
 
             if ( ndim == 4 ){
-                pr = var.get.nc(ncid, "P") + var.get.nc(ncid, "PB")
+                pr = var.get.nc(ncid, "P", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE) + var.get.nc(ncid, "PB", start=c(ind[1],ind[2],NA,keeptime[1]), count=c(1,1,NA,length(keeptime)), collapse=FALSE)
                 temp = interp_vert(temp, pr, prlevs, case = 0)
             }
 
-            # extract the nearest point
-            if ( ndim == 4 ){
-                temp = temp[ind[1], ind[2], ,]
-            } else if ( ndim == 3 ){
-                temp = temp[ind[1], ind[2], ]
-            }
+            ## extract the nearest point
+            #if ( ndim == 4 ){
+            #    temp = temp[ind[1], ind[2], ,]
+            #} else if ( ndim == 3 ){
+            #    temp = temp[ind[1], ind[2], ]
+            #}
         }
 
-        # subset to the needed time stamps
-        ndim = length( dim(var) )
-        if (ndim == 3){
-            temp = temp[ which(Times>=Timerange[1] & Times<=Timerange[2]) ]
-        } else if (ndim == 4){
-            temp = temp[ , which(Times>=Timerange[1] & Times<=Timerange[2]) ]
-        }
+        ## subset to the needed time stamps
+        #ndim = length( dim(var) )
+        #if (ndim == 3){
+        #    temp = temp[ which(Times>=Timerange[1] & Times<=Timerange[2]) ]
+        #} else if (ndim == 4){
+        #    temp = temp[ , which(Times>=Timerange[1] & Times<=Timerange[2]) ]
+        #}
 
         # apply the offset
         if ( !is.null(offset) ){
