@@ -8,12 +8,12 @@ get.cpc.rain <- function(cpcpath, cpcfile, subset, sublat = NULL, sublon = NULL,
     source("addhour.r")
 
     # decide the time range
-    if (inherits(subset,"POSIXlt")){
+    if (inherits(subset,"POSIXct")){
         Timerange = subset
-    } else if (inherits(subset,"POSIXct")) {
-        Timerange = as.POSIXlt( subset, tz = "GMT" )
+    } else if (inherits(subset,"POSIXlt")) {
+        Timerange = as.POSIXct( subset, tz = "GMT" )
     } else {
-        Timerange = strptime( subset, "%Y-%m-%d %H:%M:%S", tz = "GMT" )
+        Timerange = as.POSIXct( strptime( subset, "%Y-%m-%d %H:%M:%S", tz = "GMT" ) )
     }
 
     # decide the relevant files
@@ -40,10 +40,10 @@ get.cpc.rain <- function(cpcpath, cpcfile, subset, sublat = NULL, sublon = NULL,
     for (i in c(1:length(filelist))){
         ncid = open.nc( filelist[i] )
 
-        # get time and convert to POSIXt time
+        # get time and convert to POSIXct time
         time.offset = strsplit( att.get.nc(ncid,"time","units"), " " )[[1]]
-        time.offset = strptime( paste(time.offset[3],time.offset[4]," "), format = "%Y-%m-%d %H:%M:%S " ) # start hour
-        time = addhour( time.offset, var.get.nc(ncid,"time") )
+        time.offset = strptime( paste(time.offset[3],time.offset[4]," "), format = "%Y-%m-%d %H:%M:%S ", tz = "GMT" ) # start hour
+        time = as.POSIXct( addhour( time.offset, var.get.nc(ncid,"time") ) )
 
         # which of the times are within subset
         keep = which( time >= Timerange[1] & time <= Timerange[2] )
@@ -56,7 +56,7 @@ get.cpc.rain <- function(cpcpath, cpcfile, subset, sublat = NULL, sublon = NULL,
             temp = var.get.nc(ncid, "precip", start=c(NA,NA,min(keep)), count=c(NA,NA,length(keep)))
         }
 
-        # concatenate
+        # concatenate variable
         if (i == 1){
             var = temp
         } else {
@@ -68,7 +68,7 @@ get.cpc.rain <- function(cpcpath, cpcfile, subset, sublat = NULL, sublon = NULL,
             if (i == 1){
                 tstamp = time[keep]
             } else {
-                tstamp = c( tstamp, time[keep] )
+                tstamp = rbind( data.frame(time = tstamp), data.frame(time = time[keep]) )[[1]] # only in this way does it keep the time zone
             }
         }
         close.nc(ncid)

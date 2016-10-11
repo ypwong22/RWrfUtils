@@ -31,7 +31,7 @@ get_wrf_var <- function(ncid, varname, ...){
         temp = var.get.nc(ncid, "U", ...)    
         nx = dim(temp)[1]
         return( 0.5 * ( temp[1:(nx-1),,,] + temp[2:nx,,,] ) )
-        
+
     } else if (varname == "V"){
         
         # V (Time, bottom_top, south_north_stag, west_east) [m s-1]
@@ -55,7 +55,7 @@ get_wrf_var <- function(ncid, varname, ...){
         return( (var.get.nc(ncid, "P", ...) + var.get.nc(ncid, "PB", ...))/100 )
 
     } else if (varname == "TT"){
-        
+
         # T (west_east, south_north, bottom_top, Time) [K]
         # - perturbation potential temperature
         # Total potential temperature = T + 300 [K]
@@ -66,12 +66,12 @@ get_wrf_var <- function(ncid, varname, ...){
         Rd = 287 # [J K-1 kg-1]
         cp = 1004 # [J K-1 kg-1]
         return( pot * (p/ps)^(Rd/cp) - 273.15 ) # unit: oC
-        
+
     } else if (varname == "T2"){
 
         # 2m temperature
         return( var.get.nc(ncid, "T2", ...) - 273.15 ) # unit: oC
-        
+
     } else if (varname == "RH"){
 
         # QVAPOR (west_east, south_north, bottom_top, Time)
@@ -110,7 +110,7 @@ get_wrf_var <- function(ncid, varname, ...){
 
         return( r*Rv*PSFC / (r*Rv + Rd) / es * 100) # convert to [%]
 
-    }else if (varname == "SH"){
+    } else if (varname == "SH"){
 
         q = var.get.nc(ncid, "QVAPOR", ...)
         return( q / (1+q) )
@@ -120,11 +120,15 @@ get_wrf_var <- function(ncid, varname, ...){
         q = var.get.nc(ncid, "Q2", ...)
         return( q / (1+q) )
 
-    }else if (varname == "PSFC"){
+    } else if (varname == "PSFC"){
 
         # surface temperature - convert from [Pa] to [hPa] (=milibar)
         # Note: NOT sea level pressure!!!!
         return( var.get.nc(ncid,"PSFC", ...) / 100 )
 
+    } else {
+        print(paste("Cannot handle",varname,"yet ... try to read directly"))
+        # assume is on mass grid
+        return( var.get.nc(ncid, varname, ...) )
     }
 }

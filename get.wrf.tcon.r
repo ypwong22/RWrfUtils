@@ -4,6 +4,7 @@ get.wrf.tcon <- function(varname, path, pattern){
     # subset = inclusive time range to plot the data, e.g. c("1995-01-01 00:00:00", "1995-01-31 23:00:00")
 
     # Obtain time-constant WRF variables
+    # "XLAT" "XLON"
 
     require("RNetCDF")
 

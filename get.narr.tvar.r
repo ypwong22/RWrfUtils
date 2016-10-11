@@ -1,4 +1,4 @@
-get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), offset, return_tstamp = FALSE){
+get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), return_tstamp = FALSE){
     # varname - the name of the variable to read in NARR files
     # subset - time range of the variables to read; POSIXlt/ct objects, or "%Y-%m-%d %H:%M:%S", length = 2 vector
     # sublat - c(min_lat, max_lat)
@@ -6,8 +6,9 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
     # narrpath - directory of the NARR files
     # narrpattern - subset the files to reduce the work
     # prlevs - if 4D variable, subset to pressure levels
+    # return_tstamp - if TRUE, return time stamp of the var (before SUM/MEAN/SD was performed)
 
-    # Note: NARFILE = c("hgt.yyyymm.nc","uwnd.yyyymm.nc","vwnd.yyyymm.nc","air.2m.yyyy.nc","uwnd.10m.yyyy.nc","vwnd.10m.yyyy.nc","apcp.yyyy.nc") # narr file name pattern
+    # Note: NARFILE = c("hgt.yyyymm.nc","uwnd.yyyymm.nc","vwnd.yyyymm.nc","air.yyyymm.nc","air.2m.yyyy.nc","uwnd.10m.yyyy.nc","vwnd.10m.yyyy.nc","apcp.yyyy.nc") # narr file name pattern
 
     require("RNetCDF")
     require("abind")
@@ -15,16 +16,16 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
     source("get.narr.tcon.r")
 
     # decide the time range
-    if (inherits(subset,"POSIXlt")){
+    if (inherits(subset,"POSIXct")){
         Timerange = subset
-    } else if (inherits(subset,"POSIXct")) {
-        Timerange = as.POSIXlt( subset, tz = "GMT" )
+    } else if (inherits(subset,"POSIXlt")) {
+        Timerange = as.POSIXct( subset, tz = "GMT" )
     } else {
-        Timerange = strptime( subset, "%Y-%m-%d %H:%M:%S", tz = "GMT" )
+        Timerange = as.POSIXct( strptime( subset, "%Y-%m-%d %H:%M:%S", tz = "GMT" ) )
     }
 
     # decide the relevant files
-    ttt = as.POSIXlt( seq(from = Timerange[1], to = Timerange[2], by = "1 month"), tz = "GMT" )
+    ttt = as.POSIXlt( seq(from = Timerange[1], to = Timerange[2], by = "1 month"), tz = "GMT" ) # the time zone of the seq's result is taken from "from"
     print(format(ttt,"%Y",tz ="GMT"))
     print(format(ttt,"%m",tz="GMT"))
     if ( grep("yyyymm", narrfile) ){
@@ -60,11 +61,19 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
         # get time and convert to POSIXt time
         time.offset = strsplit( att.get.nc(ncid,"time","units"), " " )[[1]]
         time.offset = strptime( paste(time.offset[3],time.offset[4]," "), format = "%Y-%m-%d %H:%M:%S ", tz="GMT" ) # start hour
-        time = addhour( time.offset, var.get.nc(ncid,"time") )
+        time = as.POSIXct( addhour( time.offset, var.get.nc(ncid,"time") ) )
 
         # which of the times are within subset
         keep = which( time >= Timerange[1] & time <= Timerange[2] )
-        
+
+        if (return_tstamp){
+            if (i == 1){
+                timestamp = time[keep]
+            } else {
+                timestamp = rbind( data.frame(time = timestamp), data.frame(time = time[keep]) )[[1]] # only in this way does it keep the time zone
+            }
+        }
+
         # number of dimensions of the variable
         ndim = var.inq.nc(ncid, varname)$ndims
 
@@ -100,8 +109,10 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
         close.nc(ncid)
     }
 
-    # offset - for temperature
-    var = var - offset
+    # if temperature, [K] to [oC]
+    if (varname == "air"){ # narrfile = "air.2m.yyyy.nc" "air.yyyymm.nc"
+        var = var - 273.15
+    }
 
     # if precipitation, convert to [mm]
     if (varname == "apcp"){
@@ -109,28 +120,54 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
     }
 
     if (calc == "ASIS"){
-        return( var )
+        if (return_tstamp){
+            return( list(var = var, timestamp = timestamp) )
+        } else {
+            return( var )
+        }
     } else if (calc == "SUM"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE), timestamp = timestamp) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = sum, na.rm=TRUE) )
+            }
         } else if (ndim == 4) {
-            return( apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE), timestamp = timestamp) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = sum, na.rm=TRUE) )
+            }
         }
     } else if (calc == "MEAN"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE), timestamp = timestamp) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = mean, na.rm=TRUE) )
+            }
         } else if (ndim == 4) {
-            return( apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE), timestamp = timestamp ) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = mean, na.rm=TRUE) )
+            }
         }
     } else if (calc == "SD"){
         if (ndim == 3){
-            return( apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE), timestamp = timestamp) )
+            } else {
+                return( apply(var, MARGIN = c(1,2), FUN = sd, na.rm=TRUE) )
+            }
         } else if (ndim == 4){
-            return( apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE) )
+            if (return_tstamp){
+                return( list(var = apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE), timestamp = timestamp) )
+            } else {
+                return( apply(var, MARGIN = c(1,2,3), FUN = sd, na.rm=TRUE) )
+            }
         }
     } else {
         stop("Un-recognized statistics")
     }
-
-    return(var)
 }
