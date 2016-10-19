@@ -28,13 +28,13 @@ compare.met_em.wrf <- function(varname, vardim, subset, path, pattern, res = c("
 
     vvv = get.wrf.tvar(varname, vardim, subset, path, pattern, calc = "ASIS", prlevs = prlevs, return_tstamp = TRUE)
     # convert the WRF variable to 6-hourly, daily or monthly
-    wrfvar = condense(vvv$var, vvv$timestamp, calc = calcC, toscale = res)
+    wrfvar = condense(vvv$var, vvv$timestamp, calc = calcC, toscale = res, return_tstamp = TRUE)
 
     # read the MET_EM variable (6-hourly)
     metvarname = METVAR[ which(WRFVAR == varname) ]
     rrr = get.met_em.tvar(metvarname, vardim, subset, metpath, metpattern, calc = "ASIS", prlevs = prlevs, return_tstamp = TRUE)
     # convert the MET_EM variable to 6-hourly, daily or monthly
-    metvar = condense(rrr$var, rrr$timestamp, calc = calcC, toscale = res)
+    metvar = condense(rrr$var, rrr$timestamp, calc = calcC, toscale = res, return_tstamp = TRUE)
 
     # check that number of dimensions match
     wrfndim = length(dim(wrfvar$var))

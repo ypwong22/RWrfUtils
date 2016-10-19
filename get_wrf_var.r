@@ -1,5 +1,7 @@
-get_wrf_var <- function(ncid, varname, ...){
+get_wrf_var <- function(ncid, varname, bucket_mm = NULL, ...){
     require("RNetCDF")
+
+    # bucket_mm = the value in "nameplist.input" where rainfall accumulation resets to zero; needed only for precipitation
 
     if (varname == "hgt"){
 
@@ -83,7 +85,7 @@ get_wrf_var <- function(ncid, varname, ...){
         T0 = 273.15 # [K]
         L = 2.5 * 10^6 # [J kg-1]
 
-        T = get_wrf_var(ncid, "TT", ...)
+        T = get_wrf_var(ncid, "TT", ...) + 273.15 # got oC, convert to K
         P = get_wrf_var(ncid, "PR", ...)
         r = var.get.nc(ncid, "QVAPOR", ...)
         
@@ -102,7 +104,7 @@ get_wrf_var <- function(ncid, varname, ...){
         T0 = 273.15 # [K]
         L = 2.5 * 10^6 # [J kg-1]
 
-        T2 = get_wrf_var(ncid, "T2", ...)
+        T2 = get_wrf_var(ncid, "T2", ...) + 273.15 # got oC, convert to K
         PSFC = get_wrf_var(ncid, "PSFC", ...)
         r = var.get.nc(ncid, "Q2", ...)
         
@@ -126,7 +128,10 @@ get_wrf_var <- function(ncid, varname, ...){
         # Note: NOT sea level pressure!!!!
         return( var.get.nc(ncid,"PSFC", ...) / 100 )
 
-    } else {
+    } else if (varname == "RAIN"){
+        # is the cumulative rainfall; will deal with in the calling function
+        return( var.get.nc(ncid,"RAINNC", ...) + var.get.nc(ncid,"I_RAINNC", ...)*bucket_mm + var.get.nc(ncid,"RAINC", ...) + var.get.nc(ncid,"I_RAINC", ...)*bucket_mm )
+    }else {
         print(paste("Cannot handle",varname,"yet ... try to read directly"))
         # assume is on mass grid
         return( var.get.nc(ncid, varname, ...) )

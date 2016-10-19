@@ -1,6 +1,8 @@
-compare.cpc.wrf <- function(subset, path, pattern, res = c("daily","monthly","annual"), calc = c("ASIS","MEAN","RMSE"), pct = FALSE, cpcpath, cpcfile = "precip.V1.0.yyyy.nc"){
+compare.cpc.wrf <- function(subset, path, pattern, wrfstepsize, bucket_mm, res = c("daily","monthly","annual"), calc = c("ASIS","MEAN","RMSE"), pct = FALSE, cpcpath, cpcfile = "precip.V1.0.yyyy.nc", return_tstamp = TRUE){
     # Compare the 0.25x0.25 CPC monthly or annual precipitation to WRF monthly or annual precipitation
     # as is, mean, or rmse of (CPC precipitation - WRF precipitation)
+    # wrfstempsize = [hr] is used to adjust the subset, to deal with cumulative WRF precipitation
+    # bucket_mm = the value in "nameplist.input" where rainfall accumulation resets to zero
 
     require("RNetCDF")
     require("akima")
@@ -9,6 +11,7 @@ compare.cpc.wrf <- function(subset, path, pattern, res = c("daily","monthly","an
     # source("get.cpc.dim.r")
     source("get.cpc.rain.r")
     source("condense.r")
+    source("addhour.r")
 
     # Note: cpcfile = "precip.V1.0.yyyy.nc" by default from http://www.esrl.noaa.gov/psd/data/gridded/data.unified.daily.conus.html
     # Note: Currently interpolated using bilinear. Need to change to inverse distance weighting
@@ -18,10 +21,27 @@ compare.cpc.wrf <- function(subset, path, pattern, res = c("daily","monthly","an
 
     lonCONUS = -360 + c(230.125, 230.375, 230.625, 230.875, 231.125, 231.375, 231.625, 231.875, 232.125, 232.375, 232.625, 232.875, 233.125, 233.375, 233.625, 233.875, 234.125, 234.375, 234.625, 234.875, 235.125, 235.375, 235.625, 235.875, 236.125, 236.375, 236.625, 236.875, 237.125, 237.375, 237.625, 237.875, 238.125, 238.375, 238.625, 238.875, 239.125, 239.375, 239.625, 239.875, 240.125, 240.375, 240.625, 240.875, 241.125, 241.375, 241.625, 241.875, 242.125, 242.375, 242.625, 242.875, 243.125, 243.375, 243.625, 243.875, 244.125, 244.375, 244.625, 244.875, 245.125, 245.375, 245.625, 245.875, 246.125, 246.375, 246.625, 246.875, 247.125, 247.375, 247.625, 247.875, 248.125, 248.375, 248.625, 248.875, 249.125, 249.375, 249.625, 249.875, 250.125, 250.375, 250.625, 250.875, 251.125, 251.375, 251.625, 251.875, 252.125, 252.375, 252.625, 252.875, 253.125, 253.375, 253.625, 253.875, 254.125, 254.375, 254.625, 254.875, 255.125, 255.375, 255.625, 255.875, 256.125, 256.375, 256.625, 256.875, 257.125, 257.375, 257.625, 257.875, 258.125, 258.375, 258.625, 258.875, 259.125, 259.375, 259.625, 259.875, 260.125, 260.375, 260.625, 260.875, 261.125, 261.375, 261.625, 261.875, 262.125, 262.375, 262.625, 262.875, 263.125, 263.375, 263.625, 263.875, 264.125, 264.375, 264.625, 264.875, 265.125, 265.375, 265.625, 265.875, 266.125, 266.375, 266.625, 266.875, 267.125, 267.375, 267.625, 267.875, 268.125, 268.375, 268.625, 268.875, 269.125, 269.375, 269.625, 269.875, 270.125, 270.375, 270.625, 270.875, 271.125, 271.375, 271.625, 271.875, 272.125, 272.375, 272.625, 272.875, 273.125, 273.375, 273.625, 273.875, 274.125, 274.375, 274.625, 274.875, 275.125, 275.375, 275.625, 275.875, 276.125, 276.375, 276.625, 276.875, 277.125, 277.375, 277.625, 277.875, 278.125, 278.375, 278.625, 278.875, 279.125, 279.375, 279.625, 279.875, 280.125, 280.375, 280.625, 280.875, 281.125, 281.375, 281.625, 281.875, 282.125, 282.375, 282.625, 282.875, 283.125, 283.375, 283.625, 283.875, 284.125, 284.375, 284.625, 284.875, 285.125, 285.375, 285.625, 285.875, 286.125, 286.375, 286.625, 286.875, 287.125, 287.375, 287.625, 287.875, 288.125, 288.375, 288.625, 288.875, 289.125, 289.375, 289.625, 289.875, 290.125, 290.375, 290.625, 290.875, 291.125, 291.375, 291.625, 291.875, 292.125, 292.375, 292.625, 292.875, 293.125, 293.375, 293.625, 293.875, 294.125, 294.375, 294.625, 294.875, 295.125, 295.375, 295.625, 295.875, 296.125, 296.375, 296.625, 296.875, 297.125, 297.375, 297.625, 297.875, 298.125, 298.375, 298.625, 298.875, 299.125, 299.375, 299.625, 299.875, 300.125, 300.375, 300.625, 300.875, 301.125, 301.375, 301.625, 301.875, 302.125, 302.375, 302.625, 302.875, 303.125, 303.375, 303.625, 303.875, 304.125, 304.375, 304.625, 304.875)
 
-    # read the WRF precipitation 
-    vvv = get.wrf.tvar(varname = "RAINNC", vardim = 3, subset, path, pattern, calc = "ASIS", prlevs = prlevs, return_tstamp = TRUE)
+    # adjust the subset for WRF by converting to POSIXlt and remove the wrfstepsize
+    if ( inherits(subset[1],"POSIXlt") ){
+        wrfsubset = rbind( data.frame(time = addhour(subset[1], -wrfstepsize)), data.frame(time = subset[2]) )[[1]]
+    } else if (inherits(subset[1],"POSIXct")){
+        wrfsubset = as.POSIXlt(subset, tz = "GMT")
+        wrfsubset = rbind( data.frame(time = addhour(subset[1], -wrfstepsize)), data.frame(time = subset[2]) )[[1]]
+    } else {
+        # treat as string
+        temp = as.POSIXlt( strptime(subset, "%Y-%m-%d %H:%M:%S", tz = "GMT") )
+        wrfsubset = rbind( data.frame(time = addhour(temp[1], -wrfstepsize)), data.frame(time = temp[2]) )[[1]]
+    }
+
+    wrfsubset = as.POSIXct(wrfsubset)
+
+    # read the WRF precipitation
+    vvv = get.wrf.tvar(varname = "RAIN", vardim = 3, wrfsubset, path, pattern, calc = "ASIS", prlevs = prlevs, return_tstamp = TRUE, bucket_mm = bucket_mm ) # original unit is [mm]
+    # difference to get each time step's rainfall
+    temp = vvv$var[,,2:(dim(vvv$var)[3])] - vvv$var[,,1:(dim(vvv$var)[3]-1)]
+    temptime = vvv$timestamp[ 2:length(vvv$timestamp) ]
     # convert the WRF variable to the specified resolution
-    wrfvar = condense(vvv$var, vvv$timestamp, calc = "SUM", toscale = res)
+    wrfvar = condense(temp, temptime, calc = "SUM", toscale = res, return_tstamp = TRUE)
 
     # interpolate WRF precipitation to 0.25x0.25
     # - subset latCONUS, lonCONUS to a more reasonable range covered by WRF
@@ -32,25 +52,20 @@ compare.cpc.wrf <- function(subset, path, pattern, res = c("daily","monthly","an
     wrflonrng = c(min(wrflon, na.rm=TRUE), max(wrflon, na.rm=TRUE))
 
     lato = latCONUS[ latCONUS > wrflatrng[1] & latCONUS < wrflatrng[2] ]
-    lono = lonCONUS[ lonCONUS > wrflonrng[2] & lonCONUS < wrflonrng[2] ]
+    lono = lonCONUS[ lonCONUS > wrflonrng[1] & lonCONUS < wrflonrng[2] ]
 
-    if (wrfndim == 2){
-        wrfvar_intrp = interp(as.vector(wrflon), as.vector(wrflat), as.vector(wrfvar), xo = lono, yo = lato)
-    } else if (wrfndim == 3){
-        wrfvar_intrp = array(data=NA, dim=c( length(lono), length(lato), dim(wrfvar)[3] ))
-        for (i in 1:dim(wrfvar)[3]){
-            wrfvar_intrp[,,i] = interp(as.vector(wrflon), as.vector(wrflat), as.vector(wrfvar[,,i]), xo = lono, yo = lato)
-        }
+    # wrfndim == 3
+    wrfvar_intrp = array(data=NA, dim=c( length(lono), length(lato), dim(wrfvar$var)[3] ))
+    for (i in 1:dim(wrfvar$var)[3]){
+        wrfvar_intrp[,,i] = interp(as.vector(wrflon), as.vector(wrflat), as.vector(wrfvar$var[,,i]), xo = lono, yo = lato)$z
     }
 
     # read the CPC precipitation
     # cpclat = get.cpc.dim("lat", cpcpath, sub("yyyy", "[0-9]{4}", cpcfile), subset = wrflatrng) # "precip.V1.0.[0-9]{4}.nc"
     # cpclon = -360 + get.cpc.dim("lon", cpcpath, sub("yyyy", "[0-9]{4}", cpcfile), subset = wrflonrng)
-    rrr = get.cpc.rain(cpcpath, cpcfile, subset, sublat = wrflatrng, sublon = wrflonrng, return_tstamp = TRUE)
-    cpcrain = rrr$var
-    cpctime = rrr$timestamp
+    rrr = get.cpc.rain(cpcpath, cpcfile, subset, sublat = wrflatrng, sublon = wrflonrng, calc = "ASIS", return_tstamp = TRUE)
     # convert the CPC precipitation the specified resolution
-    cpcrain_intrp = condense(rrr$var, rrr$timestamp, calc = "SUM", toscale = res)
+    cpcrain_intrp = condense(rrr$var, rrr$timestamp, calc = "SUM", toscale = res, return_tstamp = FALSE)
 
     # check that the dimensions match
     if (sum( dim(cpcrain_intrp) - dim(wrfvar_intrp) ) != 0){
@@ -65,10 +80,22 @@ compare.cpc.wrf <- function(subset, path, pattern, res = c("daily","monthly","an
 
     # ASIS, MEAN, RMSE, PCTASIS, PCTMEAN, PCTRMSE
     if (calc == "ASIS"){
-        return( list(diff = diff, lat = lato, lon = lono) )
+        if (return_tstamp){
+            return( list(diff = diff, lat = lato, lon = lono, timestamp = wrfvar$timestamp) )
+        } else {
+            return( list(diff = diff, lat = lato, lon = lono) )
+        }
     } else if (calc == "MEAN"){
-        return( list(diff = apply(diff, MARGIN = c(1,2), FUN = mean, na.rm = FALSE), lat = lato, lon = lono) )
+        if (return_tstamp){
+            return( list(diff = apply(diff, MARGIN = c(1,2), FUN = mean, na.rm = FALSE), lat = lato, lon = lono, timestamp = wrfvar$timestamp) )
+        } else {
+            return( list(diff = apply(diff, MARGIN = c(1,2), FUN = mean, na.rm = FALSE), lat = lato, lon = lono, timestamp = wrfvar$timestamp) )
+        }
     } else if (calc == "RMSE"){
-        return( list(diff = apply(diff, MARGIN = c(1,2), FUN = sd, na.rm = FALSE), lat = lato, lon = lono) )
+        if (return_tstamp){
+            return( list(diff = apply(diff, MARGIN = c(1,2), FUN = sd, na.rm = FALSE), lat = lato, lon = lono, timestamp = wrfvar$timestamp) )
+        } else {
+            return( list(diff = apply(diff, MARGIN = c(1,2), FUN = sd, na.rm = FALSE), lat = lato, lon = lono) )
+        }
     }
 }

@@ -1,10 +1,11 @@
-get.wrf.tvar <- function(varname, vardim, subset, path, pattern, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), return_tstamp = FALSE ){
+get.wrf.tvar <- function(varname, vardim, subset, path, pattern, calc = c("ASIS","SUM","MEAN","SD"), prlevs = c(500, 700, 850), return_tstamp = FALSE, bucket_mm= NULL){
     # vardim = 3 or 4, the dimension of the variable
     # path = directory of the wrf files
     # pattern = the files of interest, to reduce the amount of memory needed
     # subset = inclusive time range to plot the data, e.g. c("1995-01-01 00:00:00", "1995-01-31 23:00:00"), or POSIXct objects
     # prlevs (needed only when dim(var)=4) = the pressure levels to interpolate the data to
     # if return_tstamp = TRUE, return a vector of the time stamps of the slices of var (before SUM/MEAN/SD was performed)
+    # bucket_mm = the value in "nameplist.input" where rainfall accumulation resets to zero
 
     # Obtain time-varying WRF variables
 
@@ -81,7 +82,7 @@ get.wrf.tvar <- function(varname, vardim, subset, path, pattern, calc = c("ASIS"
         }
 
         # get the variable
-        temp = get_wrf_var(ncid, varname, start=start, count=count, collapse = FALSE)
+        temp = get_wrf_var(ncid, varname, bucket_mm = bucket_mm, start=start, count=count, collapse = FALSE)
 
         if (vardim == 4){
             # subset to pressure levels

@@ -52,7 +52,7 @@ get.met_em.tvar <- function(varname, vardim, subset, path, pattern, calc = c("AS
             if (i == 1){
                 time = Times[ keeptime ]
             } else {
-                time =rbind( data.frame(time = time), data.frame(time = Times[ keeptime ]) )[[1]] # only in this way does it keep the time zone
+                time = rbind( data.frame(time = time), data.frame(time = Times[ keeptime ]) )[[1]] # only in this way does it keep the time zone
             }
         }
 

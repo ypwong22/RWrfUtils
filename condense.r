@@ -1,4 +1,4 @@
-condense <- function( variable, timestamp, calc = c("MEAN","SUM","SD"), toscale = c("3-hourly","6-hourly","daily","monthly","annual") ){
+condense <- function( variable, timestamp, calc = c("MEAN","SUM","SD"), toscale = c("3-hourly","6-hourly","daily","monthly","annual"), return_tstamp = FALSE ){
     # timestamp and the last dimension of variable must have equal length
     # variable = [time], [y, x, time] or [y, x, levels, time]
     # timestamp = "%Y-%m-%d %H:%M:%S" or POSIXlt objects
@@ -134,5 +134,9 @@ condense <- function( variable, timestamp, calc = c("MEAN","SUM","SD"), toscale 
 
     }
 
-    return(list(var = var, timestamp = timetemp[1:(length(timetemp)-1)]))
+    if (return_tstamp){
+        return(list(var = var, timestamp = timetemp[1:(length(timetemp)-1)]))
+    } else {
+        return(var)
+    }
 }

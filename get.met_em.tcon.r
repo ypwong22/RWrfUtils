@@ -12,7 +12,11 @@ get.met_em.tcon <- function(varname, path, pattern){
 
     ncid = open.nc(filelist)
 
-    var = var.get.nc(ncid, varname)
+    if (varname == "ELEV"){ # surface elevation, unit: [m]
+        var = var.get.nc(ncid, "GHT", start = c(NA,NA,1,1), count = c(NA,NA,1,1), collapse = TRUE)
+    } else {
+        var = var.get.nc(ncid, varname)
+    }
 
     # if multiple time steps, subset to the 1st one
     ndim = length( dim(var) )

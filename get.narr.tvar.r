@@ -10,6 +10,8 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
 
     # Note: NARFILE = c("hgt.yyyymm.nc","uwnd.yyyymm.nc","vwnd.yyyymm.nc","air.yyyymm.nc","air.2m.yyyy.nc","uwnd.10m.yyyy.nc","vwnd.10m.yyyy.nc","apcp.yyyy.nc") # narr file name pattern
 
+    print("Warning: use var.get.nc(..., unpack = TRUE, na.mode = 2 ) in reading NARR files, that is, unpack short type if applicable & accept only missing_value attribute.")
+
     require("RNetCDF")
     require("abind")
     source("addhour.r")
@@ -28,13 +30,13 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
     ttt = as.POSIXlt( seq(from = Timerange[1], to = Timerange[2], by = "1 month"), tz = "GMT" ) # the time zone of the seq's result is taken from "from"
     print(format(ttt,"%Y",tz ="GMT"))
     print(format(ttt,"%m",tz="GMT"))
-    if ( grep("yyyymm", narrfile) ){
+    if ( length( grep("yyyymm", narrfile) ) >= 1 ){
         year = unique( paste( format(ttt,"%Y",tz ="GMT"), format(ttt,"%m",tz="GMT"), sep = "") )
         filelist = c()
         for (i in 1:length(year)){
             filelist[i] = sub("yyyymm", year[i], narrfile)
         }
-    } else if ( grep("yyyy", narrfile) ){
+    } else if ( length( grep("yyyy", narrfile) ) >= 1 ){
         year = unique( format(ttt,"%Y",tz="GMT") )
         filelist = c()
         for (i in 1:length(year)){
@@ -50,7 +52,7 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
     
     latrange = which(lat >= sublat[1] & lat <= sublat[2], arr.ind = TRUE)
     lonrange = which(lon >= sublon[1] & lon <= sublon[2], arr.ind = TRUE)
-    
+
     yrange = c(min(latrange[,2]), max(latrange[,2]) - min(latrange[,2]) + 1)
     xrange = c(min(lonrange[,1]), max(lonrange[,1]) - min(lonrange[,1]) + 1)
 
@@ -88,7 +90,7 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
 
         # read the variable with time and spatial dimensions sub-setted
         if (ndim == 4){
-            temp = var.get.nc(ncid, varname, start = c(xrange[1],yrange[1],NA,keep[1]), count = c(xrange[2],yrange[2],NA,length(keep)),unpack=TRUE,collapse=FALSE)
+            temp = var.get.nc(ncid, varname, start = c(xrange[1],yrange[1],NA,keep[1]), count = c(xrange[2],yrange[2],NA,length(keep)),collapse=FALSE,unpack=TRUE,na.mode=2)
             # subset the pressure level dimension
             if (ndim == 3){
                 temp = temp[,,keep2]
@@ -96,7 +98,7 @@ get.narr.tvar <- function(varname, subset, sublat, sublon, narrpath, narrfile, c
                 temp = temp[,,keep2,]
             }
         } else {
-            temp = var.get.nc(ncid, varname, start = c(xrange[1],yrange[1],keep[1]), count = c(xrange[2],yrange[2],length(keep)),unpack=TRUE,collapse=FALSE)
+            temp = var.get.nc(ncid, varname, start = c(xrange[1],yrange[1],keep[1]), count = c(xrange[2],yrange[2],length(keep)),collapse=FALSE,unpack=TRUE,na.mode=2)
         }
 
         # concatenate
